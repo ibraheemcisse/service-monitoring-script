@@ -1,0 +1,22 @@
+[Unit]
+Description=Python test app
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=dell-linux
+WorkingDirectory=/home/dell-linux/sre-stack-demo/app
+Environment="PATH=/home/dell-linux/sre-stack-demo/app/venv/bin"
+Environment="DB_HOST=localhost"
+Environment="DB_NAME=testdb"
+Environment="DB_USER=testuser"
+Environment="DB_PASS=testpass"
+
+ExecStart=/home/dell-linux/sre-stack-demo/app/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 2 app:app
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
