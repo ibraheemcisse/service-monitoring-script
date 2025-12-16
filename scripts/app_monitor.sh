@@ -16,6 +16,20 @@ check_service_status() {
     fi
 }
 
+get_service_details() {
+    local service="$1"
+    
+    # Get the Main PID
+    local pid=$(systemctl show "$service" --property=MainPID --value)
+    
+    # Get uptime (how long service has been running)
+    local uptime=$(systemctl show "$service" --property=ActiveEnterTimestamp --value)
+    
+    echo "  PID: $pid"
+    echo "  Started: $uptime"
+}
+
+
 # Main function
 main() {
     echo "=== Application Service Monitor ==="
@@ -24,8 +38,16 @@ main() {
 
     for service in "${SERVICES[@]}"; do
         check_service_status "$service"
+    
+        # If service is running, show details
+        if systemctl is-active "$service" > /dev/null 2>&1; then
+            get_service_details "$service"
+            echo "" 
+        fi
     done
+
 }
 
-# Run main
+# Run maingit branch -M main
+
 main
