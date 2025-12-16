@@ -29,6 +29,17 @@ get_service_details() {
     echo "  Started: $uptime"
 }
 
+check_health_endpoint() {
+    local service="$1"
+    local url="$2"
+    
+    # Try to curl the health endpoint
+    if curl -s -f "$url" > /dev/null 2>&1; then
+        echo "  Health: ✓ Endpoint responding"
+    else
+        echo "  Health: ✗ Endpoint not responding"
+    fi
+}
 
 # Main function
 main() {
@@ -42,6 +53,13 @@ main() {
         # If service is running, show details
         if systemctl is-active "$service" > /dev/null 2>&1; then
             get_service_details "$service"
+            
+                        # Check health endpoint for flask-demo
+            if [ "$service" = "flask-demo" ]; then
+                check_health_endpoint "$service" "http://localhost:5000/health"
+            fi
+            
+            
             echo "" 
         fi
     done
