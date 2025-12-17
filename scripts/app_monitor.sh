@@ -72,6 +72,14 @@ check_service_logs() {
     journalctl -u "$service" -n 10 --no-pager
 }
 
+count_errors_in_logs() {
+    local service="$1"
+    
+    local error_count=$(journalctl -u "$service" --since "1 hour ago" | grep -i "error" | wc -l)
+    
+    echo "  Errors in last hour: $error_count"
+}
+
 # Main function
 main() {
     echo "=== Application Service Monitor ==="
@@ -91,7 +99,8 @@ main() {
             fi
             
             get_resource_usage "$service"
-            
+            count_errors_in_logs "$service"
+
             echo ""
             check_service_logs "$service"
             echo "-----------------------------------"
