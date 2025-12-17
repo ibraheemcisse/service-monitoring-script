@@ -80,8 +80,44 @@ count_errors_in_logs() {
     echo "  Errors in last hour: $error_count"
 }
 
+show_summary() {
+    # 1. Count total services
+    local total_services=${#SERVICES[@]}
+    local running_count=0
+    local failed_count=0
+    
+    # 2. Count running vs failed
+    for service in "${SERVICES[@]}"; do
+        if systemctl is-active "$service" > /dev/null 2>&1; then 
+            ((running_count++))
+        else 
+            ((failed_count++))
+        fi
+    done
+    
+    # 3. Determine overall status
+    local overall_status
+    if [ $failed_count -eq 0 ]; then
+        overall_status="✓ HEALTHY"
+    else
+        overall_status="✗ DEGRADED"
+    fi
+    
+    # 4. Display summary
+    echo "=== APPLICATION STACK HEALTH ==="
+    echo "Status: $overall_status"
+    echo "Services Running: $running_count/$total_services"
+    echo "Services Failed: $failed_count/$total_services"
+    echo "Checked at: $(date)"
+    echo "====================================="
+}
+
 # Main function
 main() {
+    clear
+
+    show_summary
+    
     echo "=== Application Service Monitor ==="
     echo "Starting checks at $(date)"
     echo ""
