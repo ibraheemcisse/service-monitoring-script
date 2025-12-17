@@ -41,8 +41,33 @@ check_health_endpoint() {
     fi
 }
 
+get_resource_usage() {
+    local service="$1"
+    
+    # Get PID
+    local pid=$(systemctl show "$service" --property=MainPID --value)
+
+    #check of pid is valid
+    if [ -z "$pid" ] || [ "$pid" -eq 0 ]; then
+        echo "  Resource Usage: N/A (no valid PID)"
+        return
+    fi
+    
+    #get cpu 
+    local cpu=$(ps -p $pid -o %cpu --no-headers)
+    
+    echo "PID for $service: $pid"
+    echo "  CPU Usage: $cpu"
+
+    #get memory
+    local memory=$(ps -p $pid -o %mem --no-headers)
+    
+    echo "  Memory Usage: $memory"
+}
+
 # Main function
 main() {
+
     echo "=== Application Service Monitor ==="
     echo "Starting checks at $(date)"
     echo ""
@@ -58,14 +83,12 @@ main() {
             if [ "$service" = "flask-demo" ]; then
                 check_health_endpoint "$service" "http://localhost:5000/health"
             fi
-            
-            
-            echo "" 
+            get_resource_usage "$service"
+            echo ""
         fi
     done
 
 }
-
 # Run maingit branch -M main
 
 main
