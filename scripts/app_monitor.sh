@@ -1,17 +1,17 @@
 #!/bin/bash
 
 #service monitoring script
-SERVICES=("postgresql" "flask-demo" "nginx" "docker")
+SERVICES=("postgresql" "flask-demo" "nginx")
 
 # Check if postgresql is active
 check_service_status() {
     local service="$1"
 
-    if systemctl is-active "$service" > /dev/null 2>&1; then 
-        echo "✓ $service is running"
+    if systemctl is-active "$service" > /dev/null 2>&1; then
+        echo -e "\e[32m✓ $service is running\e[0m"] 
         return 0
     else 
-        echo "✗ $service is NOT running"
+        echo -e "\e[31m✗ $service is NOT running\e[0m"
         return 1
     fi
 }
@@ -35,9 +35,9 @@ check_health_endpoint() {
     
     # Try to curl the health endpoint
     if curl -s -f "$url" > /dev/null 2>&1; then
-        echo "  Health: ✓ Endpoint responding"
+        echo -e "  Health: \e[32m✓ Endpoint responding\e[0m"
     else
-        echo "  Health: ✗ Endpoint not responding"
+        echo -e "  Health: \e[31m✗ Endpoint not responding\e[0m"
     fi
 }
 
@@ -105,8 +105,11 @@ show_summary() {
     
     # 4. Display summary
     echo "=== APPLICATION STACK HEALTH ==="
-    echo "Status: $overall_status"
-    echo "Services Running: $running_count/$total_services"
+if [ $failed_count -eq 0 ]; then
+    echo -e "Status: \e[32m✓ HEALTHY\e[0m"  # Green
+else
+    echo -e "Status: \e[31m✗ DEGRADED\e[0m"  # Red
+fi
     echo "Services Failed: $failed_count/$total_services"
     echo "Checked at: $(date)"
     echo "====================================="
