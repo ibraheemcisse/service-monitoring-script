@@ -56,18 +56,24 @@ get_resource_usage() {
     #get cpu 
     local cpu=$(ps -p $pid -o %cpu --no-headers)
     
-    echo "PID for $service: $pid"
-    echo "  CPU Usage: $cpu"
+    echo "  CPU: ${cpu}%"
 
     #get memory
     local memory=$(ps -p $pid -o %mem --no-headers)
     
-    echo "  Memory Usage: $memory"
+    echo "  Memory Usage: ${memory}%"
+
+}
+
+check_service_logs() {
+    local service="$1"
+    
+    echo "  Recent Logs:"
+    journalctl -u "$service" -n 10 --no-pager
 }
 
 # Main function
 main() {
-
     echo "=== Application Service Monitor ==="
     echo "Starting checks at $(date)"
     echo ""
@@ -79,16 +85,19 @@ main() {
         if systemctl is-active "$service" > /dev/null 2>&1; then
             get_service_details "$service"
             
-                        # Check health endpoint for flask-demo
+            # Check health endpoint for flask-demo
             if [ "$service" = "flask-demo" ]; then
                 check_health_endpoint "$service" "http://localhost:5000/health"
             fi
+            
             get_resource_usage "$service"
+            
             echo ""
+            check_service_logs "$service"
+            echo "-----------------------------------"
         fi
     done
-
 }
-# Run maingit branch -M main
 
+# Run main
 main
