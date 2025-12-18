@@ -1,36 +1,48 @@
 #!/bin/bash
 
-# Application Service Monitor
-# Monitors multi-tier application stack
+# Application Service Monitor that Monitors multi-tier application stack
 
 # Services to monitor
 SERVICES=("postgresql" "flask-demo" "nginx")
 
+#Thresholds
+CPU_THRESHOLD=0
+MEMORY_THRESHOLD=0 
+ERROR_THRESHOLD=0
+
 #retry command function
+
 retry_command() {
-local max_attempts=3
+    local max_attempts=3
     local attempt=1
     local wait_time=2
     local command="$@"
+    local show_attempts=false  # Flag to track if we needed retries
     
     while [ $attempt -le $max_attempts ]; do
-
-        echo "  [Attempt $attempt/$max_attempts]" >&2 
-
         if eval "$command" > /dev/null 2>&1; then
-            return 0  # Success
+            return 0  # Success - no message needed
+        fi
+        
+        # Only show retry messages if first attempt failed
+        if [ $attempt -eq 1 ]; then
+            show_attempts=true
+        fi
+        
+        if [ "$show_attempts" = true ]; then
+            echo "  [Retry attempt $attempt/$max_attempts failed]" >&2
         fi
         
         if [ $attempt -lt $max_attempts ]; then
-        
-        echo "  [Waiting ${wait_time}s before retry...]" >&2  # Add this
-
+            if [ "$show_attempts" = true ]; then
+                echo "  [Waiting ${wait_time}s before retry...]" >&2
+            fi
             sleep $wait_time
         fi
         ((attempt++))
     done
     
-    return 1  # Failed after all retries
+    return 1  # All attempts failed
 }
 
 # Check if a service is active
@@ -62,7 +74,7 @@ check_health_endpoint() {
     local service="$1"
     local url="$2"
     
-    if retry_command "curl -s -f -m 5 "$url""; then
+    if retry_command "curl -s -f -m 5 $url"; then
         echo -e "  Health: \e[32m✓ Endpoint responding\e[0m"
     else
         echo -e "  Health: \e[31m✗ Endpoint not responding\e[0m"
@@ -80,13 +92,32 @@ get_resource_usage() {
         return
     fi
     
-    # Get CPU and Memory
-    local cpu=$(ps -p $pid -o %cpu --no-headers 2>/dev/null)
-    local memory=$(ps -p $pid -o %mem --no-headers 2>/dev/null)
-    
+    # Get CPU and Memory (remove whitespace with tr -d ' ')
+    local cpu=$(ps -p $pid -o %cpu --no-headers 2>/dev/null | tr -d ' ')
+    local memory=$(ps -p $pid -o %mem --no-headers 2>/dev/null | tr -d ' ')
+
+
+    #echo "  [DEBUG] cpu='$cpu'"
+    #echo "  [DEBUG] memory='$memory'"
+
+
     echo "  CPU: ${cpu}%"
     echo "  Memory: ${memory}%"
+    
+    # Check CPU threshold
+    local cpu_int=${cpu%.*}
+    if [ ! -z "$cpu_int" ] && [ "$cpu_int" -gt $CPU_THRESHOLD ]; then
+        echo -e "  \e[33m⚠ WARNING: CPU usage above $CPU_THRESHOLD%\e[0m"
+    fi
+
+
+    # Check Memory threshold
+    local memory_int=${memory%.*}
+    if [ ! -z "$memory_int" ] && [ "$memory_int" -gt $MEMORY_THRESHOLD ]; then
+        echo -e "  \e[33m⚠ WARNING: Memory usage above $MEMORY_THRESHOLD%\e[0m"
+    fi
 }
+
 
 # Count errors in logs
 count_errors() {
@@ -94,6 +125,11 @@ count_errors() {
     local error_count=$(journalctl -u "$service" --since "1 hour ago" 2>/dev/null | grep -ic "error")
     
     echo "  Errors (last hour): $error_count"
+
+    # Check error threshold
+    if [ "$error_count" -gt $ERROR_THRESHOLD ]; then
+        echo -e "  \e[33m⚠ WARNING: Error count above $ERROR_THRESHOLD\e[0m"
+    fi
 }
 
 # Show recent logs
