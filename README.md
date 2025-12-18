@@ -1,6 +1,6 @@
 # Application Service Monitor
 
-A production-grade Bash monitoring script for multi-tier application stacks with intelligent alerting and threshold-based warnings.
+A Bash monitoring script for multi-tier application stacks with intelligent alerting and threshold-based warnings.
 
 ## 🎯 Overview
 
