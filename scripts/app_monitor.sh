@@ -5,6 +5,9 @@
 # ---------------- CONFIG ----------------
 SERVICES=("postgresql" "flask-demo" "nginx")
 
+#see if verbose output of retries
+VERBOSE=${VERBOSE:-1}   # default to on
+
 # Thresholds (make these configurable via env vars if needed)
 CPU_THRESHOLD=${CPU_THRESHOLD:-80}          # % CPU
 MEMORY_THRESHOLD=${MEMORY_THRESHOLD:-80}    # % Memory
@@ -49,13 +52,15 @@ clear_alert() {
 
 # ---------------- UTILITIES ----------------
 retry_command() {
-    local max_attempts=3
-    local attempt=1
-    local wait_time=2
-
+    local max_attempts=3 attempt=1 wait_time=2
     while (( attempt <= max_attempts )); do
         if "$@" >/dev/null 2>&1; then
             return 0
+        fi
+        # print retry lines when VERBOSE is set
+        if [[ "${VERBOSE:-}" == "1" ]]; then
+            echo "  [Retry attempt $attempt/$max_attempts failed]" >&2
+            (( attempt < max_attempts )) && echo "  [Waiting ${wait_time}s before retry...]" >&2
         fi
         (( attempt < max_attempts )) && sleep "$wait_time"
         ((attempt++))
