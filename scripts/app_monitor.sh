@@ -82,10 +82,10 @@ check_service_status() {
         alert_once "$service" \
 "Service: $service
 Host: $(hostname)
-State: NOT RUNNING
+State: 🔥 FIRE IN THE BUILDING
 Time: $(date)
-Next step: systemctl status $service"
-        return 1
+Next step: systemctl status $service 🔭"
+    return 1
     fi
 }
 
@@ -162,7 +162,7 @@ count_errors() {
 
     echo "  Errors (last hour): $errors"
 
-    if (( errors > ERROR_THRESHOLD )); then
+    if awk -v a="$errors" -v b="$ERROR_THRESHOLD" 'BEGIN{exit !(a>b)}'; then
         echo -e "  \e[33m⚠ High error rate\e[0m"
         alert_once "${service}-errors" \
 "Service: $service
