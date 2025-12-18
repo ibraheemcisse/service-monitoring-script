@@ -304,21 +304,6 @@ MIT License - feel free to use this in your own projects!
 - GitHub: [@ibraheemcisse](https://github.com/ibraheemcisse)
 - LinkedIn: [Ibrahim Cisse](https://linkedin.com/in/ibraheemcisse)
 
-## 🙏 Acknowledgments
-
-- Built as part of SRE/DevOps transition journey
-- Inspired by production monitoring needs
-- Thanks to my mentor Ahmed for guidance
-
-## 📚 Learning Resources
-
-This project demonstrates:
-- Linux process management
-- systemd service administration
-- Bash scripting best practices
-- Production monitoring patterns
-- Alert management strategies
-
 ---
 
 **⭐ If you find this useful, please star the repo!**
