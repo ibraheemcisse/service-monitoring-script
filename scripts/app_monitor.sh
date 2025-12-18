@@ -10,6 +10,46 @@ CPU_THRESHOLD=0
 MEMORY_THRESHOLD=0 
 ERROR_THRESHOLD=0
 
+#alert repeat interval in seconds
+ALERT_REPEAT_SECONDS=${ALERT_REPEAT_SECONDS:-3600}
+
+# Function to send Slack alert
+send_slack_alert() {
+    local message="$1"
+
+    # If webhook is not set, silently skip
+    [[ -z "${SLACK_WEBHOOK_URL:-}" ]] && return
+
+    curl -s -X POST \
+        -H 'Content-type: application/json' \
+        --data "{
+          \"text\": \"🚨 SERVICE ALERT\n$message\"
+        }" \
+        "$SLACK_WEBHOOK_URL" >/dev/null
+}
+
+alert_once() {
+    local name="$1"          # e.g. "${service}-cpu" or service name for down alerts
+    local message="$2"
+    local alert_file="/tmp/${name}.alerted"
+
+    # If file exists, check mtime (allow repeat only after ALERT_REPEAT_SECONDS)
+    if [[ -f "$alert_file" ]]; then
+        local last=$(stat -c %Y "$alert_file" 2>/dev/null || echo 0)
+        local now=$(date +%s)
+        local age=$((now - last))
+        if [ "$age" -lt "$ALERT_REPEAT_SECONDS" ]; then
+            # too recent, skip
+            return
+        fi
+    fi
+
+    # send alert and update/refresh marker file
+    send_slack_alert "$message"
+    touch "$alert_file"
+}
+
+
 #retry command function
 
 retry_command() {
@@ -49,13 +89,24 @@ retry_command() {
 check_service_status() {
     local service="$1"
 
-    if retry_command systemctl is-active "$service"; then
-        echo -e "\e[32m✓ $service is running\e[0m"  # Fixed: removed extra ]
-        return 0
-    else 
-        echo -e "\e[31m✗ $service is NOT running\e[0m"
-        return 1
-    fi
+if retry_command systemctl is-active "$service"; then
+    rm -f /tmp/"${service}"*.alerted
+    echo -e "\e[32m✓ $service is running\e[0m"
+    return 0
+else
+    echo -e "\e[31m✗ $service is NOT running\e[0m"
+
+alert_once "$service" \
+"Service: $service
+Host: $(hostname)
+State: NOT RUNNING
+Time: $(date)
+Next step: systemctl status $service"
+
+
+    return 1
+fi
+
 }
 
 # Get service details (PID and start time)
@@ -86,49 +137,46 @@ get_resource_usage() {
     local service="$1"
     local pid=$(systemctl show "$service" --property=MainPID --value)
 
-    # Check if PID is valid
     if [ -z "$pid" ] || [ "$pid" -eq 0 ]; then
         echo "  Resource Usage: N/A (no valid PID)"
         return
     fi
-    
-    # Get CPU and Memory (remove whitespace with tr -d ' ')
-    local cpu=$(ps -p $pid -o %cpu --no-headers 2>/dev/null | tr -d ' ')
-    local memory=$(ps -p $pid -o %mem --no-headers 2>/dev/null | tr -d ' ')
 
-
-    #echo "  [DEBUG] cpu='$cpu'"
-    #echo "  [DEBUG] memory='$memory'"
-
+    local cpu=$(ps -p "$pid" -o %cpu --no-headers 2>/dev/null | tr -d ' ')
+    local memory=$(ps -p "$pid" -o %mem --no-headers 2>/dev/null | tr -d ' ')
 
     echo "  CPU: ${cpu}%"
     echo "  Memory: ${memory}%"
-    
-    # Check CPU threshold
-    local cpu_int=${cpu%.*}
-    if [ ! -z "$cpu_int" ] && [ "$cpu_int" -gt $CPU_THRESHOLD ]; then
-        echo -e "  \e[33m⚠ WARNING: CPU usage above $CPU_THRESHOLD%\e[0m"
-    fi
 
+    # Floating-point comparison with awk
+if [ -n "$cpu" ] && awk -v a="$cpu" -v b="$CPU_THRESHOLD" 'BEGIN{exit !(a>b)}'; then
+    echo -e "...warning..."
+    alert_once "${service}-cpu" "Service: $service ... CPU ${cpu}% ..."
+else
+    rm -f "/tmp/${service}-cpu.alerted" 2>/dev/null || true
+fi
 
-    # Check Memory threshold
-    local memory_int=${memory%.*}
-    if [ ! -z "$memory_int" ] && [ "$memory_int" -gt $MEMORY_THRESHOLD ]; then
-        echo -e "  \e[33m⚠ WARNING: Memory usage above $MEMORY_THRESHOLD%\e[0m"
-    fi
+# Memory check (same pattern)
+if [ -n "$memory" ] && awk -v a="$memory" -v b="$MEMORY_THRESHOLD" 'BEGIN{exit !(a>b)}'; then
+    ...
+    alert_once "${service}-memory" "Service: $service ... Memory ${memory}% ..."
+else
+    rm -f "/tmp/${service}-memory.alerted" 2>/dev/null || true
+fi
 }
 
 
 # Count errors in logs
 count_errors() {
     local service="$1"
-    local error_count=$(journalctl -u "$service" --since "1 hour ago" 2>/dev/null | grep -ic "error")
-    
+    local error_count
+    error_count=$(journalctl -u "$service" --since "1 hour ago" 2>/dev/null | grep -ic "error" || true)
+
     echo "  Errors (last hour): $error_count"
 
-    # Check error threshold
-    if [ "$error_count" -gt $ERROR_THRESHOLD ]; then
+    if [ "$error_count" -gt "$ERROR_THRESHOLD" ]; then
         echo -e "  \e[33m⚠ WARNING: Error count above $ERROR_THRESHOLD\e[0m"
+        alert_once "${service}-errors" "Service: $service\nHost: $(hostname)\nErrors (last hour): $error_count\nThreshold: ${ERROR_THRESHOLD}\nTime: $(date)"
     fi
 }
 
