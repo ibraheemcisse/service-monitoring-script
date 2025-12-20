@@ -5,15 +5,15 @@
 # ---------------- CONFIG ----------------
 SERVICES=("postgresql" "flask-demo" "nginx")
 
-#see if verbose output of retries
-VERBOSE=${VERBOSE:-1}   # default to on
+#verbose output of retries
+VERBOSE=${VERBOSE:-1}   
 
 # Thresholds (make these configurable via env vars if needed)
 CPU_THRESHOLD=${CPU_THRESHOLD:-80}          # % CPU
 MEMORY_THRESHOLD=${MEMORY_THRESHOLD:-80}    # % Memory
 ERROR_THRESHOLD=${ERROR_THRESHOLD:-10}      # Errors in last hour
 
-# Alert repeat interval in seconds (default 1 hour to avoid storms)
+# Alert repeat interval in seconds
 ALERT_REPEAT_SECONDS=${ALERT_REPEAT_SECONDS:-3}
 
 # Health endpoint for flask-demo
@@ -87,9 +87,9 @@ check_service_status() {
         alert_once "$service" \
 "Service: $service
 Host: $(hostname)
-State: 🔥 FIRE IN THE BUILDING
+State: Service is NOT RUNNING❗
 Time: $(date)
-Next step: systemctl status $service 🔭"
+Next step: systemctl status $service"
     return 1
     fi
 }
