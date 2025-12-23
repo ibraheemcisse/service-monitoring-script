@@ -1,5 +1,5 @@
 #!/bin/bash
-# Application Service Monitor - Best combined version
+
 # Monitors postgresql, flask-demo, nginx stack with alerting
 
 # ---------------- CONFIG ----------------
@@ -9,12 +9,12 @@ SERVICES=("postgresql" "flask-demo" "nginx")
 VERBOSE=${VERBOSE:-1}   
 
 # Thresholds (make these configurable via env vars if needed)
-CPU_THRESHOLD=${CPU_THRESHOLD:-80}          # % CPU
+CPU_THRESHOLD=${CPU_THRESHOLD:-0}          # % CPU
 MEMORY_THRESHOLD=${MEMORY_THRESHOLD:-80}    # % Memory
-ERROR_THRESHOLD=${ERROR_THRESHOLD:-10}      # Errors in last hour
+ERROR_THRESHOLD=${ERROR_THRESHOLD:-80}      # Errors in last hour
 
 # Alert repeat interval in seconds
-ALERT_REPEAT_SECONDS=${ALERT_REPEAT_SECONDS:-3}
+ALERT_REPEAT_SECONDS=${ALERT_REPEAT_SECONDS:-3600}
 
 # Health endpoint for flask-demo
 FLASK_HEALTH_URL="http://localhost:5000/health"
@@ -30,7 +30,7 @@ send_slack_alert() {
 }
 
 alert_once() {
-    local key="$1"       # Unique alert identifier (e.g., "flask-demo-cpu")
+    local key="$1"       
     local message="$2"
     local alert_file="/tmp/${key}.alerted"
 
@@ -107,6 +107,26 @@ get_service_details() {
 check_health_endpoint() {
     local service="$1"
     local url="$2"
+
+# Check response from health endpoint time
+    echo "  Checking health endpoint..."
+    
+    # Measure response time
+    local start=$(date +%s%N)
+    
+    if curl -sf -m 5 "$url" >/dev/null 2>&1; then
+        local end=$(date +%s%N)
+        local duration=$(( (end - start) / 1000000 ))
+        
+        echo -e "  Health: \e[32m✓ Responding (${duration}ms)\e[0m"
+        
+        if (( duration > 500 )); then
+            echo -e "  \e[33m⚠ High latency (>500ms)\e[0m"
+        fi
+    else
+        echo -e "  Health: \e[31m✗ Not responding\e[0m"
+    fi
+
 
     if retry_command curl -sf -m 5 "$url"; then
         echo -e "  Health: \e[32m✓ Endpoint responding\e[0m"
