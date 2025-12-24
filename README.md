@@ -11,7 +11,8 @@ This monitoring solution provides comprehensive health checks for service-based 
 ### Core Monitoring
 - **Service Status Checks** - Real-time monitoring of systemd services
 - **Health Endpoint Validation** - HTTP endpoint health checks with retry logic
-- **Resource Tracking** - CPU and memory usage per service
+- **Resource Tracking** - CPU and memory usage per service  
+- **Multi-Channel Alerts** - Service failures, resource warnings, health check failures, high latency
 - **Log Analysis** - Error detection and counting from journald logs
 - **Process Information** - PID tracking and uptime monitoring
 
